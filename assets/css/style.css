@@ -127,6 +127,9 @@ address { font-style: normal; }
   transition: transform .5s var(--ease);
 }
 .ulink:hover::after, .ulink:focus-visible::after { transform: scaleX(1); transform-origin: left; }
+/* the page being read stays underlined */
+.ulink[aria-current="page"]::after { transform: scaleX(1); }
+.menu__links a[aria-current="page"] { font-style: italic; }
 
 /* ---------- Pill buttons ---------- */
 .pill {
@@ -1028,6 +1031,17 @@ address { font-style: normal; }
 /* mobile menu */
 .menu__bottom { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; }
 .menu__logo .logo { width: 64px; }
+
+/* =========================================================
+   Next page (inner pages are read in the menu's order)
+   ========================================================= */
+/* an inner page opens on its own section: no gap above the day's coloured band */
+main > .day:first-child { margin-top: 0; }
+.next { padding-block: var(--section); }
+.next__link { display: block; }
+.next__title { display: block; }
+.next__title i { font-style: normal; display: inline-block; transition: transform .6s var(--ease); }
+.next__link:hover .next__title i, .next__link:focus-visible .next__title i { transform: translateX(.25em); }
 
 /* =========================================================
    Footer

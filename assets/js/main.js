@@ -2,8 +2,9 @@
 (() => {
   'use strict';
 
-  const $ = (s, c = document) => c.querySelector(s);
-  const $$ = (s, c = document) => Array.from(c.querySelectorAll(s));
+  // a page only holds some of the sections: lookups inside a missing one return nothing
+  const $ = (s, c = document) => (c ? c.querySelector(s) : null);
+  const $$ = (s, c = document) => (c ? Array.from(c.querySelectorAll(s)) : []);
   const body = document.body;
   const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
   const fine = matchMedia('(hover: hover) and (pointer: fine)').matches;
@@ -41,7 +42,8 @@
       onReady.forEach(fn => fn());
     }, reduce ? 0 : 950);
   };
-  if (reduce) {
+  // the loader only plays on the home page; inner pages open straight away
+  if (reduce || !$('.loader')) {
     body.classList.add('is-opening', 'is-loaded');
     requestAnimationFrame(() => onReady.forEach(fn => fn()));
   } else {
@@ -220,7 +222,7 @@
 
   // Contact: hover throws the stroke again
   const contactLogo = $('.contact__logo .logo');
-  $('.contact__logo').addEventListener('pointerenter', () => {
+  if (contactLogo) $('.contact__logo').addEventListener('pointerenter', () => {
     if (reduce || !contactLogo.classList.contains('is-drawn')) return;
     contactLogo.classList.remove('is-drawn');
     void contactLogo.getBoundingClientRect();
@@ -229,7 +231,7 @@
 
   // Manifesto: words ink in as you read
   const mText = $('[data-words]');
-  const mWords = splitWords(mText, 'wd');
+  const mWords = mText ? splitWords(mText, 'wd') : [];
 
   // Testimonials: words fade in
   $$('.voice p').forEach(p => splitWords(p, 'vw'));
@@ -305,8 +307,10 @@
       for (let i = 0; i < n; i++) unit().setAttribute('aria-hidden', 'true');
     });
   };
-  marquee.addEventListener('pointerenter', () => { marqueeSlow = .25; });
-  marquee.addEventListener('pointerleave', () => { marqueeSlow = 1; });
+  if (marquee) {
+    marquee.addEventListener('pointerenter', () => { marqueeSlow = .25; });
+    marquee.addEventListener('pointerleave', () => { marqueeSlow = 1; });
+  }
 
   /* ---------------------------------------------------------
      Cached geometry
@@ -337,26 +341,29 @@
   let keysDist = 0;
 
   const absTop = el => el.getBoundingClientRect().top + scrollY;
+  // a section missing from this page sits far above the viewport, so every range test skips it
+  const OFF = { top: -1e9, h: 0 };
+  const span = el => (el ? { top: absTop(el), h: el.offsetHeight } : OFF);
 
   const measure = () => {
     vw = innerWidth; vh = innerHeight;
     document.documentElement.style.setProperty('--sbw', `${innerWidth - document.documentElement.clientWidth}px`);
 
     // horizontal keys section
-    if (!isMobile() && !reduce) {
+    if (keys && !isMobile() && !reduce) {
       keysDist = Math.max(0, keysTrack.scrollWidth - vw);
       keys.style.height = (keysDist + vh) + 'px';
     } else {
       keysDist = 0;
-      keys.style.height = '';
+      if (keys) keys.style.height = '';
     }
 
-    geo.m = { top: absTop(mText), h: mText.offsetHeight };
-    geo.u = { top: absTop(unveil), h: unveil.offsetHeight };
-    geo.k = { top: absTop(keys), h: keys.offsetHeight };
-    geo.d = { top: absTop(day), h: day.offsetHeight };
-    geo.f = { top: absTop(footer), h: footer.offsetHeight };
-    geo.t = { top: absTop(gTrail), h: gTrail.getBoundingClientRect().height };
+    geo.m = span(mText);
+    geo.u = span(unveil);
+    geo.k = span(keys);
+    geo.d = span(day);
+    geo.f = span(footer);
+    geo.t = gTrail ? { top: absTop(gTrail), h: gTrail.getBoundingClientRect().height } : OFF;
     geo.imm = immersives.map(el => ({ el, top: absTop(el), h: el.offsetHeight }));
     geo.night = $$('section.zone-night, footer.zone-night').map(el => ({ top: absTop(el), h: el.offsetHeight }));
     geo.moments = moments.map(m => {
@@ -368,7 +375,7 @@
       return { el: f, img: $('img', f), top: absTop(f), h: f.offsetHeight, s: +f.dataset.speed || 0 };
     });
     geo.doc = Math.max(1, document.documentElement.scrollHeight - vh);
-    if (!reduce) updateUnveil(scrollY);
+    if (!reduce && unveil) updateUnveil(scrollY);
   };
 
   /* Unveil: the photo is seen through the ring of the logo, then we fly through it */
@@ -515,10 +522,12 @@
     d.addEventListener('click', () => goVoice(i));
     if (!reduce) d.addEventListener('animationend', e => { if (e.animationName === 'ringfill' && i === vIdx) goVoice(vIdx + 1); });
   });
-  $('.voices__stage').addEventListener('pointerenter', () => voicesSec.classList.add('is-paused'));
-  $('.voices__stage').addEventListener('pointerleave', () => voicesSec.classList.remove('is-paused'));
-  // only run the timer while visible
-  new IntersectionObserver(([en]) => voicesSec.classList.toggle('is-paused', !en.isIntersecting), { threshold: .3 }).observe(voicesSec);
+  if (voicesSec) {
+    $('.voices__stage').addEventListener('pointerenter', () => voicesSec.classList.add('is-paused'));
+    $('.voices__stage').addEventListener('pointerleave', () => voicesSec.classList.remove('is-paused'));
+    // only run the timer while visible
+    new IntersectionObserver(([en]) => voicesSec.classList.toggle('is-paused', !en.isIntersecting), { threshold: .3 }).observe(voicesSec);
+  }
 
   /* ---------------------------------------------------------
      FAQ — animated <details>
@@ -578,14 +587,16 @@
     lockScroll(false);
     if (lbReturn) lbReturn.focus({ preventScroll: true });
   };
-  gBtns.forEach((b, i) => b.addEventListener('click', () => lbOpen(i)));
-  $('.lightbox__close', lb).addEventListener('click', lbClose);
-  $('.lightbox__nav--prev', lb).addEventListener('click', () => lbShow(lbIdx - 1));
-  $('.lightbox__nav--next', lb).addEventListener('click', () => lbShow(lbIdx + 1));
-  lb.addEventListener('click', e => { if (e.target === lb) lbClose(); });
+  if (lb) {
+    gBtns.forEach((b, i) => b.addEventListener('click', () => lbOpen(i)));
+    $('.lightbox__close', lb).addEventListener('click', lbClose);
+    $('.lightbox__nav--prev', lb).addEventListener('click', () => lbShow(lbIdx - 1));
+    $('.lightbox__nav--next', lb).addEventListener('click', () => lbShow(lbIdx + 1));
+    lb.addEventListener('click', e => { if (e.target === lb) lbClose(); });
+  }
   addEventListener('keydown', e => {
     if (e.key === 'Escape' && body.classList.contains('menu-open')) setMenu(false);
-    if (!lb.classList.contains('is-open')) return;
+    if (!lb || !lb.classList.contains('is-open')) return;
     if (e.key === 'Escape') lbClose();
     if (e.key === 'ArrowLeft') lbShow(lbIdx - 1);
     if (e.key === 'ArrowRight') lbShow(lbIdx + 1);
@@ -623,7 +634,7 @@
 
     if (ready && !reduce) {
       // hero: the network rises and fades as you scroll away
-      if (y < vh * 1.2) {
+      if (heroArt && y < vh * 1.2) {
         const hp = clamp(y / vh);
         heroArt.style.transform = `translateY(${(-hp * 50).toFixed(1)}px) scale(${(1 - hp * .06).toFixed(3)})`;
         heroArt.style.opacity = hp > 0 ? (1 - hp * .85).toFixed(3) : '';
@@ -715,7 +726,7 @@
     measure();
     ready = true;
     // after its intro fade, the scroll cue follows the scroll instantly
-    setTimeout(() => { heroCue.style.transition = 'opacity .3s'; }, 2700);
+    if (heroCue) setTimeout(() => { heroCue.style.transition = 'opacity .3s'; }, 2700);
   });
   requestAnimationFrame(frame);
 
