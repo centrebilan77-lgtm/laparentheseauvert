@@ -333,18 +333,7 @@
   const footLetters = $$('[data-mark] span');
   const progress = $('.progress span');
 
-  const geo = { m: {}, u: {}, k: {}, d: {}, f: {}, t: {}, moments: [], figs: [], imm: [], night: [], tabs: [], doc: 1 };
-  const tabs = $$('[data-tabbar] a');
-  let activeTab = null;
-  const updateTabs = y => {
-    const probe = y + vh * .4;
-    const hit = geo.tabs.find(t => probe >= t.top && probe < t.bottom);
-    const el = hit ? hit.el : null;
-    if (el === activeTab) return;
-    if (activeTab) { activeTab.classList.remove('is-active'); activeTab.removeAttribute('aria-current'); }
-    if (el) { el.classList.add('is-active'); el.setAttribute('aria-current', 'location'); }
-    activeTab = el;
-  };
+  const geo = { m: {}, u: {}, k: {}, d: {}, f: {}, t: {}, moments: [], figs: [], imm: [], night: [], doc: 1 };
   let keysDist = 0;
 
   const absTop = el => el.getBoundingClientRect().top + scrollY;
@@ -370,13 +359,6 @@
     geo.t = { top: absTop(gTrail), h: gTrail.getBoundingClientRect().height };
     geo.imm = immersives.map(el => ({ el, top: absTop(el), h: el.offsetHeight }));
     geo.night = $$('section.zone-night, footer.zone-night').map(el => ({ top: absTop(el), h: el.offsetHeight }));
-    // tab bar: each tab covers its section(s), from the first one's top to the last one's bottom
-    geo.tabs = tabs.map(a => {
-      const secs = a.dataset.tab.split(' ').map(id => document.getElementById(id)).filter(Boolean);
-      if (!secs.length) return { el: a, top: -1, bottom: -1 };
-      const last = secs[secs.length - 1];
-      return { el: a, top: absTop(secs[0]), bottom: absTop(last) + last.offsetHeight };
-    });
     geo.moments = moments.map(m => {
       const top = absTop(m);
       return { el: m, c: top + m.offsetHeight / 2, min: toMin(m.dataset.time) };
@@ -631,7 +613,6 @@
 
     // progress bar + nav
     progress.style.transform = `scaleX(${clamp(y / geo.doc)})`;
-    updateTabs(y);
     updateNav(y);
 
     // cursor ring
